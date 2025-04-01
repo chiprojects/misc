@@ -1,5 +1,3 @@
-
-
 .USAGE
     Set [$secureEnvironment = $true] to secure the system
     Example syntax:
