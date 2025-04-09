@@ -1,0 +1,31 @@
+SigninLogs
+| where ResultType != 0
+| extend 
+    Latitude = tostring(LocationDetails["geoCoordinates"]["latitude"]),
+    Longitude = tostring(LocationDetails["geoCoordinates"]["longitude"]),
+    City = tostring(LocationDetails["city"]),
+    Country = tostring(LocationDetails["countryOrRegion"]),
+    RandomID = toint(rand(30)) + 1  // Assign random ID here
+| join kind=leftouter (
+    datatable(RandomID:int, Alias:string)
+    [
+        1, "Alex", 2, "Bailey", 3, "Cameron", 4, "Drew", 5, "Emery",
+        6, "Finn", 7, "Gabby", 8, "Harper", 9, "Indie", 10, "Jules",
+        11, "Kai", 12, "Logan", 13, "Morgan", 14, "Nova", 15, "Oakley",
+        16, "Peyton", 17, "Quinn", 18, "Riley", 19, "Sky", 20, "Tate",
+        21, "Uma", 22, "Vince", 23, "Wren", 24, "Xan", 25, "Yuki",
+        26, "Zion", 27, "River", 28, "Sage", 29, "Blair", 30, "Reese"
+    ]
+) on RandomID  // Join with FunNames on RandomID
+| summarize 
+    LoginCount = count() 
+    by Alias, Latitude, Longitude, City, Country
+| extend DisplayName = iif(isnull(Alias), "Unknown", Alias)
+| project 
+    DisplayName, 
+    Latitude, 
+    Longitude, 
+    City, 
+    Country, 
+    LoginCount, 
+    friendly_label = strcat(DisplayName, " - ", City, ", ", Country)
