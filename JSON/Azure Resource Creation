@@ -1,0 +1,31 @@
+{
+  "type": 3,
+  "content": {
+    "version": "KqlItem/1.0",
+    "query": "// Step 1: Create a fun name pool to use as aliases\nlet FunNames = datatable(RandomID:int, Alias:string)\n[\n    1, \"Alex\", 2, \"Bailey\", 3, \"Cameron\", 4, \"Drew\", 5, \"Emery\",\n    6, \"Finn\", 7, \"Gabby\", 8, \"Harper\", 9, \"Indie\", 10, \"Jules\",\n    11, \"Kai\", 12, \"Logan\", 13, \"Morgan\", 14, \"Nova\", 15, \"Oakley\",\n    16, \"Peyton\", 17, \"Quinn\", 18, \"Riley\", 19, \"Sky\", 20, \"Tate\",\n    21, \"Uma\", 22, \"Vince\", 23, \"Wren\", 24, \"Xan\", 25, \"Yuki\",\n    26, \"Zion\", 27, \"River\", 28, \"Sage\", 29, \"Blair\", 30, \"Reese\"\n];\n\n// Step 2: Assign a random alias to each unique Caller + CallerIpAddress combination\nlet CallerAliasMap = AzureActivity\n| where isnotempty(Caller) and isnotempty(CallerIpAddress)\n| summarize by Caller, CallerIpAddress\n| extend RandomID = toint(rand(30)) + 1\n| join kind=leftouter (FunNames) on RandomID;\n\n// Step 3: Filter and enrich the main AzureActivity data\nlet GeoIPDB_FULL = _GetWatchlist(\"geoip\");\n\nAzureActivity\n| where not(Caller matches regex @\"^[{(]?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}[)}]?$\")\n| where CallerIpAddress matches regex @\"\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b\"\n| where OperationNameValue endswith \"WRITE\" and (ActivityStatusValue == \"Success\" or ActivityStatusValue == \"Succeeded\")\n| summarize ResouceCreationCount = count() by Caller, CallerIpAddress\n| join kind=leftouter (CallerAliasMap) on Caller, CallerIpAddress\n| evaluate ipv4_lookup(GeoIPDB_FULL, CallerIpAddress, network)\n| extend DisplayName = iif(isnull(Alias), \"Unknown\", Alias)\n| project \n    DisplayName, \n    CallerIpAddress, \n    ResouceCreationCount, \n    Country = countryname, \n    Latitude = latitude, \n    Longitude = longitude, \n    friendly_label = strcat(DisplayName, \" - \", cityname, \", \", countryname)",
+    "size": 3,
+    "timeContext": {
+      "durationMs": 2592000000
+    },
+    "queryType": 0,
+    "resourceType": "microsoft.operationalinsights/workspaces",
+    "visualization": "map",
+    "mapSettings": {
+      "locInfo": "LatLong",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "sizeSettings": "ResouceCreationCount",
+      "sizeAggregation": "Sum",
+      "labelSettings": "friendly_label",
+      "legendMetric": "ResouceCreationCount",
+      "legendAggregation": "Sum",
+      "itemColorSettings": {
+        "nodeColorField": "ResouceCreationCount",
+        "colorAggregation": "Sum",
+        "type": "heatmap",
+        "heatmapPalette": "greenRed"
+      }
+    }
+  },
+  "name": "Randomized Caller Activity Map"
+}
